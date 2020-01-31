@@ -4,12 +4,14 @@ import discord4j.core.DiscordClient;
 import discord4j.core.DiscordClientBuilder;
 import discord4j.core.event.domain.lifecycle.ReadyEvent;
 import discord4j.core.event.domain.message.MessageCreateEvent;
+import discord4j.core.object.entity.Channel;
+import discord4j.core.object.entity.MessageChannel;
 import discord4j.core.object.entity.User;
+import reactor.core.publisher.Mono;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
-public class Bot {
+final public class Bot {
     /**
      * Discord bot token
      */
@@ -25,17 +27,15 @@ public class Bot {
      */
     private static final Map<String, Command> commands = new HashMap<>();
 
-    /* Fills the commands Map with keys and their corresponding command. */
-    static {
-        commands.put("ping", event -> event.getMessage()
-                .getChannel().block()
-                .createMessage("Pong!").block());
-    }
+    private static final WeatherReport weatherReport = new WeatherReport();
 
     /**
      * @param args args
      */
     public static void main(String[] args) {
+        Map<String, Command> commandList = new HashMap<>();
+        initCommands();
+
         DiscordClientBuilder builder = new DiscordClientBuilder(token);
         DiscordClient instance = builder.build();
         login(instance);
@@ -64,5 +64,24 @@ public class Bot {
                 });
     }
 
+    /**
+     * Fills the commands Map with keys and their corresponding command.
+     */
+    private static void initCommands() {
+        commands.put("ping", event -> Objects.requireNonNull(event.getMessage()
+                .getChannel().block())
+                .createMessage("Pong!").block());
 
+        commands.put("report", event -> {
+            final String content = event.getMessage().getContent().get();
+            final List<String> command = Arrays.asList(content.split(" "));
+            final Mono<MessageChannel> channel = event.getMessage().getChannel();
+
+            if (command.size() > 1) {
+                Objects.requireNonNull(channel.block()).createMessage((weatherReport.getWeatherReport(command.get(1)))).block();
+            } else {
+                Objects.requireNonNull(channel.block()).createMessage("Please specify a location for me to check the weather at.").block();
+            }
+        });
+    }
 }
