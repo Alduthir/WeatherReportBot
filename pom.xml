@@ -47,9 +47,6 @@
                 <name>worker</name>
               </program>
             </programs>
-            <processTypes>
-              <worker>java $JAVA_OPTS -cp target/classes:target/dependency/* com.weatherreport.Bot</worker>
-            </processTypes>
           </configuration>
           <executions>
             <execution>
