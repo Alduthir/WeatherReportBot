@@ -1,5 +1,10 @@
 package com.weatherreport;
 
+import com.google.maps.GeoApiContext;
+import com.google.maps.errors.InvalidRequestException;
+import com.google.maps.errors.OverDailyLimitException;
+import com.google.maps.errors.RequestDeniedException;
+import com.google.maps.model.LatLng;
 import discord4j.core.DiscordClient;
 import discord4j.core.DiscordClientBuilder;
 import discord4j.core.event.domain.lifecycle.ReadyEvent;
@@ -25,25 +30,16 @@ final public class Bot {
      */
     private static final Map<String, Command> commands = new HashMap<>();
 
-    private static final WeatherReport weatherReport = new WeatherReport();
+    private static final Location location = new Location();
 
-    /* Fills the commands Map with keys and their corresponding command. */
+    private static final GeoApiContext context = new GeoApiContext.Builder()
+            .apiKey(System.getenv("GEO_API_KEY"))
+            .build();
+
     static {
-        commands.put("ping", event -> event.getMessage()
-                .getChannel().block()
-                .createMessage("Pong!").block());
-
-        commands.put("report", event -> {
-            final String content = event.getMessage().getContent().get();
-            final List<String> command = Arrays.asList(content.split(" "));
-            final Mono<MessageChannel> channel = event.getMessage().getChannel();
-
-            if (command.size() > 1) {
-                channel.block().createMessage((weatherReport.getWeatherReport(command.get(1)))).block();
-            } else {
-                channel.block().createMessage("Please specify a location for me to check the weather at.").block();
-            }
-        });
+        addPingPongEvent();
+        addLocateEvent();
+        addReportEvent();
     }
 
     /**
@@ -78,5 +74,69 @@ final public class Bot {
                 });
     }
 
+    private static void addReportEvent() {
+        commands.put("report", event -> {
+            final String content = event.getMessage().getContent().get();
+            final List<String> command = Arrays.asList(content.split(" "));
+            final Mono<MessageChannel> channel = event.getMessage().getChannel();
 
+            if (command.size() > 1) {
+                try {
+                    LatLng response = location.getGeoLocation(context, command.get(1));
+                    channel.block().createMessage(String.format("City located at lat %f, lng %f", response.lat, response.lng));
+                } catch (Exception e) {
+                    if(e instanceof RequestDeniedException){
+                        channel.block().createMessage("Request for location was denied");
+                    }
+                    else if(e instanceof InvalidRequestException){
+                        channel.block().createMessage("I was unable to proces your request for location, it was deemed invalid.");
+                    }
+                    else if(e instanceof OverDailyLimitException){
+                        channel.block().createMessage("Daily request limit exceeded. Try again tomorrow.");
+                    }
+                    else {
+                        channel.block().createMessage("Something went wrong. Please try again.");
+                    }
+                }
+            } else {
+                channel.block().createMessage("Please specify a location for me to check the weather at.").block();
+            }
+        });
+    }
+
+    private static void addLocateEvent() {
+        commands.put("locate", event -> {
+            final String content = event.getMessage().getContent().get();
+            final List<String> command = Arrays.asList(content.split(" "));
+            final Mono<MessageChannel> channel = event.getMessage().getChannel();
+
+            if (command.size() > 1) {
+                try {
+                    LatLng response = location.getGeoLocation(context, command.get(1));
+                    channel.block().createMessage(String.format("City located at lat %f, lng %f", response.lat, response.lng));
+                } catch (Exception e) {
+                    if(e instanceof RequestDeniedException){
+                        channel.block().createMessage("Request for location was denied");
+                    }
+                    else if(e instanceof InvalidRequestException){
+                        channel.block().createMessage("I was unable to proces your request for location, it was deemed invalid.");
+                    }
+                    else if(e instanceof OverDailyLimitException){
+                        channel.block().createMessage("Daily request limit exceeded. Try again tomorrow.");
+                    }
+                    else {
+                        channel.block().createMessage("Something went wrong. Please try again.");
+                    }
+                }
+            } else {
+                channel.block().createMessage("Please specify a location for me to locate").block();
+            }
+        });
+    }
+
+    private static void addPingPongEvent() {
+        commands.put("ping", event -> event.getMessage()
+                .getChannel().block()
+                .createMessage("Pong!").block());
+    }
 }
