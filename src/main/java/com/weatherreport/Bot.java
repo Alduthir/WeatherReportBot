@@ -4,9 +4,10 @@ import discord4j.core.DiscordClient;
 import discord4j.core.DiscordClientBuilder;
 import discord4j.core.event.domain.lifecycle.ReadyEvent;
 import discord4j.core.event.domain.message.MessageCreateEvent;
+import discord4j.core.object.entity.Member;
 import discord4j.core.object.entity.MessageChannel;
+import discord4j.core.object.entity.PrivateChannel;
 import discord4j.core.object.entity.User;
-import org.json.JSONObject;
 import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
@@ -29,7 +30,8 @@ final public class Bot {
     static {
         addPingPongEvent();
         addLocateEvent();
-//        addReportEvent();
+        addReportEvent();
+        addHelpEvent();
     }
 
     /**
@@ -64,33 +66,33 @@ final public class Bot {
                 });
     }
 
-//    private static void addReportEvent() {
-//        commands.put("report", event -> {
-//            String content = event.getMessage().getContent().get();
-//            List<String> command = Arrays.asList(content.split(" "));
-//            Mono<MessageChannel> channel = event.getMessage().getChannel();
-//            Location location = new Location();
-//
-//            if (command.size() > 1) {
-//                try {
-//                    LatLng response = location.getGeoLocation(context, command.get(1));
-//                    channel.block().createMessage(String.format("City located at lat %f, lng %f", response.lat, response.lng));
-//                } catch (Exception e) {
-//                    if (e instanceof RequestDeniedException) {
-//                        channel.block().createMessage("Request for location was denied");
-//                    } else if (e instanceof InvalidRequestException) {
-//                        channel.block().createMessage("I was unable to proces your request for location, it was deemed invalid.");
-//                    } else if (e instanceof OverDailyLimitException) {
-//                        channel.block().createMessage("Daily request limit exceeded. Try again tomorrow.");
-//                    } else {
-//                        channel.block().createMessage("Something went wrong. Please try again.");
-//                    }
-//                }
-//            } else {
-//                channel.block().createMessage("Please specify a location for me to check the weather at.").block();
-//            }
-//        });
-//    }
+    private static void addReportEvent() {
+        commands.put("report", event -> {
+            String content = event.getMessage().getContent().get();
+            List<String> command = Arrays.asList(content.split(" "));
+            Mono<MessageChannel> channel = event.getMessage().getChannel();
+            GetWeatherReportService weatherReportService = new GetWeatherReportService();
+            if (command.size() > 1) {
+                String response = "";
+                String place = command.get(1);
+                try {
+                    System.out.println("Attempting to locate " + place);
+                    if (command.size() == 2) {
+                        response = weatherReportService.getWeatherReport(place);
+                    }
+                    if (command.size() > 2) {
+                        response = weatherReportService.getWeatherReport(place, command.get(2));
+                    }
+                    channel.block().createMessage(response).block();
+                } catch (Exception e) {
+                    System.out.println("Exception Thrown:" + e);
+                }
+            } else {
+                channel.block().createMessage("Please specify a location for me to report the weather at").block();
+            }
+        });
+    }
+
 
     private static void addLocateEvent() {
         commands.put("locate", event -> {
@@ -98,27 +100,15 @@ final public class Bot {
             List<String> command = Arrays.asList(content.split(" "));
             Mono<MessageChannel> channel = event.getMessage().getChannel();
             FindPlaceService findPlaceService = new FindPlaceService();
-            String place = command.get(1);
 
             if (command.size() > 1) {
+                String place = command.get(1);
                 try {
                     System.out.println("Attempting to locate " + place);
-                    JSONObject location = findPlaceService.getGeoLocation(place);
-                    if (location.isEmpty()) {
-                        channel.block().createMessage("I was unable to locate " + place);
-                    } else {
-                        channel.block().createMessage(
-                                String.format(
-                                        "%s found at lat: %8.5f lng: %8.5f",
-                                        command.get(1),
-                                        location.getDouble("lat"),
-                                        location.getDouble("lng")
-                                )
-                        ).block();
-                    }
+                    String response = findPlaceService.getGeoLocation(place);
+                    channel.block().createMessage(response).block();
                 } catch (Exception e) {
                     System.out.println("Exception Thrown:" + e);
-
                 }
             } else {
                 channel.block().createMessage("Please specify a location for me to locate").block();
@@ -130,5 +120,20 @@ final public class Bot {
         commands.put("ping", event -> event.getMessage()
                 .getChannel().block()
                 .createMessage("Pong!").block());
+    }
+
+
+    private static void addHelpEvent() {
+        commands.put("help", event -> {
+            Mono<Member> author = event.getMessage().getAuthorAsMember();
+            Mono<PrivateChannel> privateChannel = author.block().getPrivateChannel();
+
+            privateChannel.block().createMessage(
+                    "Hello and thanks for using WeatherReport. You can request the position of a city using " +
+                            ";locate <Cityname> or request a weather report using ;report <CityName>" +
+                            "When using ;report you may also specify either metric or imperial to retrieve" +
+                            " temperatures in either Fahrenheit or Celsius. example: ;report <CityName> metric"
+            ).block();
+        });
     }
 }

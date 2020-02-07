@@ -17,7 +17,7 @@ final class FindPlaceService {
      * @param place The city name you want to locate
      * @throws IOException The url is invalid.
      */
-    JSONObject getGeoLocation(String place) throws InterruptedException, IOException {
+    String getGeoLocation(String place) throws InterruptedException, IOException {
         HttpClient client = HttpClientBuilder.create().build();
         String url = String.format(
                 "https://maps.googleapis.com/maps/api/place/findplacefromtext/json?key=%s&input=%s&inputtype=textquery&fields=geometry/location",
@@ -34,16 +34,24 @@ final class FindPlaceService {
             HttpEntity entity = response.getEntity();
             String jsonString = EntityUtils.toString(entity);
             JSONObject jsonObject = new JSONObject(jsonString);
-            String status = jsonObject.getString("status");
+            int status = response.getStatusLine().getStatusCode();
+            System.out.println("Response" + status);
 
-            if (status.equals("OK")) {
+            if (status == 200) {
                 JSONArray candidates = jsonObject.getJSONArray("candidates");
                 location = candidates.getJSONObject(0).getJSONObject("geometry").getJSONObject("location");
+
+                return String.format(
+                        "%s found at lat: %8.5f lng: %8.5f",
+                        place,
+                        location.getDouble("lat"),
+                        location.getDouble("lng")
+                );
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        return location;
+        return "I'm sorry, I was unable to locate " + place;
     }
 }
