@@ -130,9 +130,9 @@ final public class Bot {
 
             privateChannel.block().createMessage(
                     "Hello and thanks for using WeatherReport. You can request the position of a city using " +
-                            ";locate <Cityname> or request a weather report using ;report <CityName>" +
+                            "`;locate <Cityname>` or request a weather report using `;report <CityName>`" +
                             "When using ;report you may also specify either metric or imperial to retrieve" +
-                            " temperatures in either Fahrenheit or Celsius. example: ;report <CityName> metric"
+                            " temperatures in either Fahrenheit or Celsius. example: `;report eindhoven metric`"
             ).block();
         });
     }
